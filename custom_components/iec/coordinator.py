@@ -365,9 +365,7 @@ class IecApiCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                 f' is present: {daily_reading.value}'
             )
 
-    async def _update_data(
-        self,
-    ) -> dict[str, dict[str, Any]]:
+    async def _update_data(self) -> dict[str, dict[str, Any]]:
         if not self._bp_number:
             customer = await self.api.get_customer()
             self._bp_number = customer.bp_number
@@ -389,6 +387,11 @@ class IecApiCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         localized_first_of_month = localized_today.replace(day=1)
         kwh_tariff = await self._get_kwh_tariff()
         kva_tariff = await self._get_kva_tariff()
+
+        if localized_today.hour < 15:
+            reading_date_for_monthly = localized_today
+        else:
+            reading_date_for_monthly = localized_first_of_month
 
         data = {
             STATICS_DICT_NAME: {
@@ -456,15 +459,12 @@ class IecApiCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
 
                 for device in devices:
                     attributes_to_add[METER_ID_ATTR_NAME] = device.device_number
-
                     reading_type: ReadingResolution | None = None
                     reading_date: date | None = None
 
                     if localized_today.date() != localized_first_of_month.date():
-                        reading_type: ReadingResolution | None = (
-                            ReadingResolution.MONTHLY
-                        )
-                        reading_date: date | None = localized_first_of_month
+                        reading_type: ReadingResolution | None = (ReadingResolution.MONTHLY)
+                        reading_date: date | None = reading_date_for_monthly
                     elif localized_today.date().isoweekday() != 7:
                         # If today's the 1st of the month, but not sunday, get weekly from yesterday
                         yesterday = localized_today - timedelta(days=1)
